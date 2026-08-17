@@ -1,5 +1,7 @@
 // src/controllers/admin.js — admin-only operations
 const { spawn } = require('child_process');
+const fs = require('fs');
+const os = require('os');
 const path = require('path');
 const { PrismaClient } = require('@prisma/client');
 const printify = require('../services/printify');
@@ -70,6 +72,63 @@ async function canReachCdp(url) {
   } catch {
     return false;
   }
+}
+
+function findChromeExecutable() {
+  const candidates = [
+    process.env.CHROME_BIN,
+    process.env.GOOGLE_CHROME_BIN,
+    process.env.CHROMIUM_BIN,
+    '/home/codespace/.cache/ms-playwright/chromium-1181/chrome-linux/chrome',
+    '/usr/bin/google-chrome',
+    '/usr/bin/google-chrome-stable',
+    '/usr/bin/chromium',
+    '/usr/bin/chromium-browser',
+  ].filter(Boolean);
+
+  for (const candidate of candidates) {
+    try {
+      if (fs.existsSync(candidate)) return candidate;
+    } catch {
+      // Ignore invalid candidate paths.
+    }
+  }
+  return null;
+}
+
+async function ensureVisibleChrome(cdpUrl) {
+  if (await canReachCdp(cdpUrl)) return true;
+
+  const chromeBin = findChromeExecutable();
+  if (!chromeBin) {
+    throw new Error('No Chrome/Chromium executable was found. Install Chrome or Playwright Chromium before running the admin scrape.');
+  }
+
+  const userDataDir = path.join(os.tmpdir(), 'gostick-chrome-admin');
+  const chromeArgs = [
+    '--remote-debugging-port=9222',
+    '--user-data-dir=' + userDataDir,
+    '--no-first-run',
+    '--no-default-browser-check',
+    '--disable-extensions',
+    '--disable-gpu',
+    '--disable-dev-shm-usage',
+    '--no-sandbox',
+    'https://csgoskins.gg/categories/sticker?page=1',
+  ];
+
+  const browserProcess = process.env.DISPLAY
+    ? spawn(chromeBin, chromeArgs, { detached: true, stdio: 'ignore' })
+    : spawn('xvfb-run', ['-a', '-s', '-screen 0 1440x1100x24', chromeBin, ...chromeArgs], { detached: true, stdio: 'ignore' });
+
+  browserProcess.unref();
+
+  for (let attempt = 0; attempt < 40; attempt += 1) {
+    if (await canReachCdp(cdpUrl)) return true;
+    await new Promise((resolve) => setTimeout(resolve, 500));
+  }
+
+  throw new Error('Chrome was started but did not expose the remote debugging port in time. Please open a visible Chrome window manually and retry.');
 }
 
 const prisma = new PrismaClient();
@@ -296,6 +355,7 @@ async function runFullStickerSync(req, res) {
     fullSyncProgress.lastLines = [];
 
     const useCdp = await canReachCdp(cdpUrl);
+    let browserMode = 'headless';
     const args = [
       scriptPath,
       '--start-page', '1',
@@ -309,12 +369,15 @@ async function runFullStickerSync(req, res) {
     ];
     if (useCdp) {
       args.push('--cdp-url', cdpUrl);
+      browserMode = 'cdp';
       updateFullSyncProgress('Verified Chrome detected at ' + cdpUrl + '. Starting scraper…', 'Verified Chrome detected at ' + cdpUrl + '.');
       console.log(`[admin] starting full sticker sync with verified Chrome at ${cdpUrl}`);
     } else {
-      args.push('--headless');
-      updateFullSyncProgress('No verified Chrome CDP endpoint was reachable. Falling back to headless mode…', 'No verified Chrome CDP endpoint found; using headless mode.');
-      console.log('[admin] starting full sticker sync in headless mode because no verified Chrome CDP endpoint was reachable.');
+      updateFullSyncProgress('Launching a visible Chrome window for Cloudflare verification…', 'Launching visible Chrome window for Cloudflare verification.');
+      await ensureVisibleChrome(cdpUrl);
+      args.push('--cdp-url', cdpUrl);
+      browserMode = 'visible-cdp';
+      console.log(`[admin] launched visible Chrome and attached scraper at ${cdpUrl}`);
     }
 
     const onLine = (text, streamName) => {
