@@ -22,6 +22,7 @@ router.patch('/orders/:id/status', ctrl.updateOrderStatus);
 // Printify
 router.get('/printify/products', ctrl.listPrintifyProducts);
 router.get('/printify/sync', ctrl.getPrintifySyncStatus);
+router.get('/printify/full-sync/status', ctrl.getFullSyncStatus);
 router.post('/printify/sync', ctrl.syncPrintifyCatalog);
 router.post('/printify/full-sync', ctrl.runFullStickerSync);
 router.post('/printify/orders/:printifyOrderId/send', ctrl.sendPrintifyOrderToProduction);

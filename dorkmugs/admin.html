@@ -206,7 +206,10 @@ function apiFetch(path, opts) {
   return fetch(API + path, Object.assign({ credentials: 'include', headers: { 'Content-Type': 'application/json' } }, opts))
     .then(function (r) {
       return r.json().then(function (d) {
-        if (!r.ok) throw new Error(d.error || 'Request failed with status ' + r.status);
+        if (!r.ok) {
+          const message = d && (d.details || d.error || 'Request failed with status ' + r.status);
+          throw new Error(message);
+        }
         return d;
       });
     })
@@ -418,20 +421,57 @@ document.getElementById('sync-products-btn').addEventListener('click', function 
   });
 });
 
+var fullSyncTimer = null;
+
+function renderFullSyncStatus(data) {
+  var status = document.getElementById('full-sync-status');
+  if (!status) return;
+
+  status.innerHTML = '<div style="font-weight:600; margin-bottom:8px;">' + esc(data.message || 'Idle') + '</div>' +
+    '<div style="font-size:.82rem; color:#bfc7d5; line-height:1.5;">' +
+    (Array.isArray(data.lastLines) && data.lastLines.length
+      ? data.lastLines.map(function (line) { return '<div>' + esc(line) + '</div>'; }).join('')
+      : '<div>Waiting for progress…</div>') +
+    '</div>';
+}
+
+function pollFullSyncStatus() {
+  apiFetch('/admin/printify/full-sync/status').then(function (data) {
+    renderFullSyncStatus(data);
+    if (!data.active) {
+      if (fullSyncTimer) clearInterval(fullSyncTimer);
+      fullSyncTimer = null;
+      return;
+    }
+  }).catch(function () {
+    if (fullSyncTimer) clearInterval(fullSyncTimer);
+    fullSyncTimer = null;
+  });
+}
+
 document.getElementById('full-sync-btn').addEventListener('click', function () {
   var table = document.getElementById('products-table');
   var status = document.getElementById('full-sync-status');
-  status.textContent = 'Running full sticker sync… this can take several minutes.';
+  renderFullSyncStatus({ message: 'Starting full sticker sync… this can take several minutes.', lastLines: ['Starting full sticker sync…'] });
   table.innerHTML = '<p>Scraping sticker pages, uploading to Cloudinary, refreshing catalog, and creating Printify listings…</p>';
+
+  if (fullSyncTimer) clearInterval(fullSyncTimer);
+  fullSyncTimer = setInterval(pollFullSyncStatus, 1500);
 
   apiFetch('/admin/printify/full-sync', { method: 'POST', body: JSON.stringify({ limit: 200 }) })
     .then(function (data) {
       status.textContent = 'Completed: ' + data.catalogCount + ' catalog items, ' + (data.printify && data.printify.created || 0) + ' created, ' + (data.printify && data.printify.updated || 0) + ' updated, ' + (data.printify && data.printify.failed || 0) + ' failed.';
       table.innerHTML = '<div class="empty-state">' + esc(data.message || 'Full sync succeeded.') + '</div>';
+      pollFullSyncStatus();
+      if (fullSyncTimer) clearInterval(fullSyncTimer);
+      fullSyncTimer = null;
     })
     .catch(function (e) {
-      status.textContent = 'Full sync failed.';
+      status.innerHTML = '<div style="color:#ff6b6b; font-weight:600;">Full sync failed.</div>' +
+        '<div style="color:#ffb3b3; margin-top:6px;">' + esc(e.message) + '</div>';
       table.innerHTML = '<p style="color:#b00020">' + esc(e.message) + '</p>';
+      if (fullSyncTimer) clearInterval(fullSyncTimer);
+      fullSyncTimer = null;
     });
 });
 

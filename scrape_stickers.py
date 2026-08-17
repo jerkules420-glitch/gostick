@@ -6,6 +6,7 @@ import base64
 import json
 import random
 import re
+import sys
 import time
 from dataclasses import asdict, dataclass, replace
 from pathlib import Path
@@ -152,6 +153,13 @@ async def is_security_challenge(page: Page) -> bool:
 async def wait_for_access(page: Page) -> bool:
     if not await is_security_challenge(page):
         return False
+
+    if not sys.stdin.isatty():
+        raise RuntimeError(
+            "Cloudflare challenge detected in a non-interactive session. "
+            "This scraper requires a visible browser session or a remote-debugging "
+            "Chrome instance; the admin API cannot complete it without one."
+        )
 
     print("Cloudflare security check detected.")
     print("Complete it in the Chrome window, then press Enter here.")

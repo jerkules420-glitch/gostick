@@ -15,6 +15,7 @@ from scrape_stickers import (
     resized_image_url,
     safe_filename,
     upload_transparent_image,
+    wait_for_access,
 )
 
 
@@ -147,6 +148,23 @@ class RateLimiterTest(unittest.IsolatedAsyncioTestCase):
             await limiter.wait()
 
         sleep.assert_awaited_once_with(5.5)
+
+
+class BrowserChallengeTest(unittest.IsolatedAsyncioTestCase):
+    async def test_wait_for_access_fails_fast_without_tty(self) -> None:
+        page = AsyncMock()
+        page.title.return_value = "Just a moment"
+        page.locator.return_value.inner_text.return_value = "Verify you are human"
+
+        with (
+            patch("scrape_stickers.is_security_challenge", new_callable=AsyncMock, return_value=True),
+            patch("scrape_stickers.sys.stdin.isatty", return_value=False),
+            patch("scrape_stickers.asyncio.to_thread") as to_thread,
+        ):
+            with self.assertRaisesRegex(RuntimeError, "requires a visible browser session"):
+                await wait_for_access(page)
+
+        to_thread.assert_not_called()
 
 
 if __name__ == "__main__":
