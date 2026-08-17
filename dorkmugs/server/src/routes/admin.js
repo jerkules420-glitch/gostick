@@ -23,6 +23,7 @@ router.patch('/orders/:id/status', ctrl.updateOrderStatus);
 router.get('/printify/products', ctrl.listPrintifyProducts);
 router.get('/printify/sync', ctrl.getPrintifySyncStatus);
 router.post('/printify/sync', ctrl.syncPrintifyCatalog);
+router.post('/printify/full-sync', ctrl.runFullStickerSync);
 router.post('/printify/orders/:printifyOrderId/send', ctrl.sendPrintifyOrderToProduction);
 
 module.exports = router;

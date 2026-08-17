@@ -150,9 +150,15 @@
       <!-- Printify Products -->
       <div id="section-products" class="admin-section" hidden>
         <h1>Printify Products</h1>
-        <button class="btn-sm btn-primary" id="sync-products-btn" style="margin-bottom:16px">
-          <i class="fas fa-sync-alt"></i> Fetch from Printify
-        </button>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px">
+          <button class="btn-sm btn-primary" id="sync-products-btn">
+            <i class="fas fa-sync-alt"></i> Fetch from Printify
+          </button>
+          <button class="btn-sm btn-primary" id="full-sync-btn">
+            <i class="fas fa-bolt"></i> Scrape + Cloudinary + Sync Printify
+          </button>
+        </div>
+        <div id="full-sync-status" style="margin-bottom:12px;color:#555;font-size:.9rem"></div>
         <div id="products-table"></div>
       </div>
     </main>
@@ -410,6 +416,23 @@ document.getElementById('sync-products-btn').addEventListener('click', function 
   }).catch(function (e) {
     document.getElementById('products-table').innerHTML = '<p style="color:#b00020">' + esc(e.message) + '</p>';
   });
+});
+
+document.getElementById('full-sync-btn').addEventListener('click', function () {
+  var table = document.getElementById('products-table');
+  var status = document.getElementById('full-sync-status');
+  status.textContent = 'Running full sticker sync… this can take several minutes.';
+  table.innerHTML = '<p>Scraping sticker pages, uploading to Cloudinary, refreshing catalog, and creating Printify listings…</p>';
+
+  apiFetch('/admin/printify/full-sync', { method: 'POST', body: JSON.stringify({ limit: 200 }) })
+    .then(function (data) {
+      status.textContent = 'Completed: ' + data.catalogCount + ' catalog items, ' + (data.printify && data.printify.created || 0) + ' created, ' + (data.printify && data.printify.updated || 0) + ' updated, ' + (data.printify && data.printify.failed || 0) + ' failed.';
+      table.innerHTML = '<div class="empty-state">' + esc(data.message || 'Full sync succeeded.') + '</div>';
+    })
+    .catch(function (e) {
+      status.textContent = 'Full sync failed.';
+      table.innerHTML = '<p style="color:#b00020">' + esc(e.message) + '</p>';
+    });
 });
 
 // ─── Pagination helper ────────────────────────────────────────────────────────

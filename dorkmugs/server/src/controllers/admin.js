@@ -1,10 +1,33 @@
 // src/controllers/admin.js — admin-only operations
+const { spawn } = require('child_process');
+const path = require('path');
 const { PrismaClient } = require('@prisma/client');
 const printify = require('../services/printify');
 const emailSvc = require('../services/email');
 const { fetchCatalog, invalidateCatalog } = require('./products');
 const printifyCatalog = require('../services/printifyCatalog');
 const productMappings = require('../services/productMappings');
+
+function runCommand(command, args, options = {}) {
+  return new Promise((resolve, reject) => {
+    const child = spawn(command, args, {
+      cwd: options.cwd || process.cwd(),
+      env: options.env || process.env,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+
+    let stdout = '';
+    let stderr = '';
+
+    child.stdout.on('data', (chunk) => { stdout += chunk.toString(); });
+    child.stderr.on('data', (chunk) => { stderr += chunk.toString(); });
+    child.on('error', (error) => reject(error));
+    child.on('close', (code) => {
+      if (code === 0) return resolve({ stdout, stderr, code });
+      reject(new Error(stderr.trim() || stdout.trim() || `Command failed with exit code ${code}`));
+    });
+  });
+}
 
 const prisma = new PrismaClient();
 
@@ -212,6 +235,55 @@ async function syncPrintifyCatalog(req, res) {
   }
 }
 
+async function runFullStickerSync(req, res) {
+  try {
+    const repoRoot = path.resolve(__dirname, '../../../..');
+    const scriptPath = path.join(repoRoot, 'scrape_stickers.py');
+    const pythonCommand = process.env.PYTHON || process.env.PYTHON3 || 'python';
+    const limit = Math.min(200, Math.max(1, parseInt(req.body?.limit, 10) || 200));
+
+    if (!process.env.CLOUDINARY_URL) {
+      return res.status(400).json({ error: 'CLOUDINARY_URL is required before running the full sticker sync.' });
+    }
+
+    console.log('[admin] starting full sticker sync');
+
+    await runCommand(
+      pythonCommand,
+      [
+        scriptPath,
+        '--start-page', '1',
+        '--end-page', '233',
+        '--output', 'output',
+        '--cdp-url', 'http://127.0.0.1:9222',
+        '--requests-per-minute', '6',
+        '--request-jitter', '2',
+        '--challenge-cooldown', '180',
+        '--upload-cloudinary',
+        '--cloudinary-folder', 'gostick.gg/stickers',
+      ],
+      { cwd: repoRoot, env: process.env }
+    );
+
+    const products = await fetchCatalog();
+    invalidateCatalog();
+    const result = await printifyCatalog.runSync(products, { limit });
+
+    return res.json({
+      ok: true,
+      catalogCount: products.length,
+      printify: result,
+      message: 'Scrape, Cloudinary upload, storefront catalog refresh, and Printify sync completed.',
+    });
+  } catch (err) {
+    console.error('[admin] fullStickerSync error', err.message);
+    return res.status(502).json({
+      error: 'Full sticker sync failed.',
+      details: err.message,
+    });
+  }
+}
+
 function getPrintifySyncStatus(_req, res) {
   const mappings = productMappings.all();
   const values = Object.values(mappings);
@@ -234,5 +306,6 @@ module.exports = {
   listPrintifyProducts,
   sendPrintifyOrderToProduction,
   syncPrintifyCatalog,
+  runFullStickerSync,
   getPrintifySyncStatus,
 };
