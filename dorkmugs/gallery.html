@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Sticker Gallery | GoStick.gg</title>
+<script src="./include/prodbs.js"></script>
+<link href="style.css" rel="stylesheet" type="text/css" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.14.0/css/all.min.css" />
+</head>
+<body>
+<div class="container">
+  <div class="announcement-bar">Buy 3+ stickers and save 10%</div>
+  <header class="header">
+    <div class="header-brand"><button id="nav-hamburger" class="nav-hamburger" aria-label="Open menu" aria-expanded="false"><i class="fas fa-bars"></i></button><a href="index.html"><span class="header-wordmark">GoStick<span>.gg</span></span></a></div>
+    <nav><ul class="header-nav"><li><a href="index.html">Home</a></li><li><a href="product.html">Shop</a></li><li><a href="search.html">Search</a></li><li><a href="gallery.html" class="active">Gallery</a></li></ul></nav>
+    <div class="header-actions"><button id="btn-login" type="button">Log In</button><button id="btn001" type="button">Sign Up</button><button id="btn-account" type="button" style="display:none"></button><button id="btn-logout" type="button" style="display:none">Log Out</button><div class="cart-btn-wrap"><button id="btn002" type="button" class="fas fa-shopping-cart fa-lg" title="View cart" aria-label="View cart"></button><span id="cart-badge" style="display:none">0</span></div></div>
+  </header>
+  <div class="content"><h2>Sticker Gallery</h2><p>Transparent, high-resolution artwork from the live GoStick collection.</p></div>
+  <section class="products sticker-grid" id="gallery-grid"><div class="catalog-state">Loading gallery...</div></section>
+  <footer class="footer"><div class="footer-inner"><div class="footer-brand"><h3>GoStick.gg</h3><p>High-resolution CS2 stickers, ready to collect.</p></div><div class="footer-links"><h4>Shop</h4><ul><li><a href="product.html">All Stickers</a></li><li><a href="search.html">Search Collection</a></li></ul></div></div><div class="footer-copy">&copy; 2026 GoStick.gg. All rights reserved.</div></footer>
+</div>
+<div id="cart-overlay" class="cart-overlay"></div>
+<aside id="cart-drawer" class="cart-drawer" aria-label="Shopping cart" aria-hidden="true"><div class="cart-drawer-header"><h3>Your Cart <span class="cart-count-label">(<span id="cart-drawer-count">0</span> items)</span></h3><button id="cart-close" class="cart-close" aria-label="Close cart">&times;</button></div><div id="cart-items" class="cart-items"></div><div class="cart-drawer-footer"><div class="cart-subtotal"><span>Subtotal</span><span id="cart-total">$0.00</span></div><button class="cart-checkout-btn" id="checkout-btn">Proceed to Checkout</button></div></aside>
+<div id="cart-toast" class="cart-toast"></div>
+<script src="./include/cart.js"></script>
+<script src="./include/auth.js"></script>
+<script>
+  var galleryGrid = document.getElementById('gallery-grid');
+  GoStickCatalog.bindCart(galleryGrid);
+  productsReady.then(function(products) {
+    galleryGrid.innerHTML = products.map(function(product) { return GoStickCatalog.productCard(product, true); }).join('');
+  }).catch(function(error) { GoStickCatalog.showError(galleryGrid, error); });
+</script>
+</body>
+</html>

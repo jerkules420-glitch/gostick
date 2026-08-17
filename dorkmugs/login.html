@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Log In | GoStick.gg</title>
+<link href="style.css" rel="stylesheet" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.14.0/css/all.min.css" />
+</head>
+<body>
+<div class="container">
+
+  <div class="announcement-bar">
+    Buy 3+ stickers and save 10%
+  </div>
+
+  <header class="header">
+    <div class="header-brand">
+      <a href="index.html">
+        <span class="header-wordmark">GoStick<span>.gg</span></span>
+      </a>
+    </div>
+    <nav>
+      <ul class="header-nav">
+        <li><a href="index.html">Home</a></li>
+        <li><a href="product.html">Shop</a></li>
+        <li><a href="search.html">Collections</a></li>
+        <li><a href="gallery.html">Gallery</a></li>
+      </ul>
+    </nav>
+    <div class="header-actions">
+      <button id="btn-login" type="button" style="display:none">Log In</button>
+      <button id="btn001" type="button" style="display:none">Sign Up</button>
+      <button id="btn-account" type="button" style="display:none"></button>
+      <button id="btn-logout" type="button" style="display:none">Log Out</button>
+      <div class="cart-btn-wrap">
+        <button id="btn002" type="button" class="fas fa-shopping-cart fa-lg" title="View cart" aria-label="View cart"></button>
+        <span id="cart-badge" style="display:none">0</span>
+      </div>
+    </div>
+  </header>
+
+  <div class="auth-page">
+    <div class="auth-card">
+      <h2>Log In</h2>
+      <div id="auth-error" class="auth-error"></div>
+      <form id="login-form" novalidate>
+        <div class="form-group">
+          <label for="email">Email</label>
+          <input type="email" id="email" name="email" autocomplete="email" required placeholder="you@example.com" />
+        </div>
+        <div class="form-group">
+          <label for="password">Password</label>
+          <input type="password" id="password" name="password" autocomplete="current-password" required placeholder="••••••••" />
+          <a href="forgot-password.html" class="forgot-link">Forgot password?</a>
+        </div>
+        <button type="submit" class="btn-submit" id="btn-submit">Log In</button>
+      </form>
+      <div class="auth-footer">
+        Don&rsquo;t have an account? <a href="register.html">Sign Up</a>
+      </div>
+    </div>
+  </div>
+
+  <footer class="footer">
+    <div class="footer-inner">
+      <div class="footer-brand"><h3>GoStick.gg</h3></div>
+    </div>
+    <div class="footer-copy">&copy; 2026 GoStick.gg. All rights reserved.</div>
+  </footer>
+</div>
+
+<div id="cart-overlay" class="cart-overlay"></div>
+<aside id="cart-drawer" class="cart-drawer" aria-label="Shopping cart" aria-hidden="true">
+  <div class="cart-drawer-header">
+    <h3>Your Cart</h3>
+    <button id="cart-close" class="cart-close" aria-label="Close cart">&times;</button>
+  </div>
+  <div id="cart-items" class="cart-items"></div>
+  <div class="cart-drawer-footer">
+    <div class="cart-subtotal"><span>Subtotal</span><span id="cart-total">$0.00</span></div>
+    <button class="cart-checkout-btn" id="checkout-btn">Proceed to Checkout</button>
+    <a class="cart-continue-link">Continue Shopping</a>
+  </div>
+</aside>
+<div id="cart-toast" class="cart-toast"></div>
+
+<script src="./include/cart.js"></script>
+<script src="./include/auth.js"></script>
+<script>
+  // Redirect already-logged-in users
+  document.addEventListener('DOMContentLoaded', function () {
+    if (Auth.isLoggedIn()) {
+      window.location.href = Auth.isAdmin() ? 'admin.html' : 'account.html';
+    }
+  });
+
+  document.getElementById('login-form').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var errEl = document.getElementById('auth-error');
+    var btn = document.getElementById('btn-submit');
+    errEl.style.display = 'none';
+    btn.disabled = true;
+    btn.textContent = 'Logging in…';
+
+    var email = document.getElementById('email').value.trim();
+    var password = document.getElementById('password').value;
+
+    Auth.login(email, password)
+      .then(function (user) {
+        window.location.href = user.role === 'ADMIN' ? 'admin.html' : 'account.html';
+      })
+      .catch(function (err) {
+        errEl.textContent = (err && err.message) || 'Login failed. Please try again.';
+        errEl.style.display = 'block';
+        btn.disabled = false;
+        btn.textContent = 'Log In';
+      });
+  });
+</script>
+</body>
+</html>

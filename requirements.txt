@@ -1,0 +1,6 @@
+playwright==1.54.0
+pillow==12.3.0
+numpy==2.4.6
+scipy==1.17.1
+cloudinary==1.44.1
+python-dotenv==1.1.1
